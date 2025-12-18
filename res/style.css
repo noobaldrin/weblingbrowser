@@ -1,0 +1,63 @@
+box {
+    margin: 1px;
+    border-spacing: 1px;
+}
+
+.dialog-box {
+    padding: 5px;
+    border-spacing: 5px;
+}
+
+button.circular {
+    padding: 2px;
+    min-width: 20px;
+    min-height: 20px;
+    border-radius: 999px;
+}
+
+.tab-close-button {
+    padding: 0;
+    margin-left: 4px;
+    min-width: 14px;
+    min-height: 14px;
+    border-radius: 2px;
+    background: none;
+    border: none;
+}
+
+/* Make the whole tab strip thinner */
+notebook > header.top tabs {
+    padding: 0;
+    min-height: 0;      /* Cancels theme minimum */
+    margin-top: 3px;
+    margin-bottom: 0;
+    padding-left: 6px;
+    padding-right: 6px;
+}
+
+notebook > header.top tab {
+    margin: 0 2px;
+    padding: 0 6px;
+    min-height: 22px;         /* matches buttons */
+    border-radius: 4px;       /* less bubble-like */
+}
+
+notebook > header.top tab label {
+    padding: 0;
+    margin: 0;
+}
+
+.tab-close-btn {
+    padding: 0;
+    margin-left: 4px;
+    min-width: 14px;
+    min-height: 14px;
+    background: none;
+    border: none;
+    border-radius: 2px;
+}
+
+.tab-close-btn image {
+    margin: 0;
+    padding: 0;
+}

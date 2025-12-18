@@ -1,0 +1,9 @@
+<node>
+    <interface name="com.github.noobaldrin.webling">
+        <method name="Toggle"/>
+        <method name="Show"/>
+        <method name="Hide"/>
+        <method name="Close"/>
+        <method name="Debug"/>
+    </interface>
+</node>

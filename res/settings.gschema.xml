@@ -1,0 +1,56 @@
+<schemalist>
+    <schema id="com.github.noobaldrin.webling.fonts"
+            path="/com/github/noobaldrin/webling/fonts/">
+        <key name="default-font" type="s">
+            <default>'Bitstream Vera Sans Roman 12'</default>
+            <summary>Default Font</summary>
+        </key>
+        <key name="monospace" type="s">
+            <default>'Monospace Bold 12'</default>
+            <summary>Monospace Font</summary>
+        </key>
+        <key name="serif" type="s">
+            <default>'Serif Regular 12'</default>
+            <summary>Serif Font</summary>
+        </key>
+        <key name="sans-serif" type="s">
+            <default>'Sans Regular 12'</default>
+            <summary>Sans Serif Font</summary>
+        </key>
+        <key name="override-button" type="b">
+            <default>false</default>
+            <summary>Override font on select</summary>
+        </key>
+    </schema>
+    <schema id="com.github.noobaldrin.webling.sessions"
+            path="/com/github/noobaldrin/webling/sessions/">
+        <!-- The session ID you should restore on startup -->
+        <key name="current-session-id" type="s">
+            <default>''</default>
+            <summary>Active session identifier</summary>
+        </key>
+
+        <!-- Optional: useful if you want a session picker, history, or debugging -->
+        <key name="recent-session-ids" type="as">
+            <default>[]</default>
+            <summary>List of recently saved session IDs</summary>
+        </key>
+
+        <!-- Optional: whether to auto-restore on startup -->
+        <key name="restore-last-session" type="b">
+            <default>true</default>
+            <summary>Restore the current session on startup</summary>
+        </key>
+    </schema>
+    <schema id="com.github.noobaldrin.webling.databases" path="/com/github/noobaldrin/webling/databases/">
+        <key name="urls-db-path" type="s">
+            <default>''</default>
+            <summary>Path to urls.db</summary>
+        </key>
+
+        <key name="sessions-db-path" type="s">
+            <default>''</default>
+            <summary>Path to sessions.db</summary>
+        </key>
+    </schema>
+</schemalist>
