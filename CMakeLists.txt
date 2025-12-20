@@ -5,8 +5,8 @@ project(webling)
 set(CMAKE_CXX_STANDARD 17)
 
 find_program(GLIB_COMPILE_RESOURCES NAMES glib-compile-resources REQUIRED)
-set(GRESOURCE_XML ${CMAKE_CURRENT_SOURCE_DIR}/res/resources.gresource.xml)
-set(GRESOURCEBIN ${CMAKE_CURRENT_SOURCE_DIR}/res/resources.gresource)
+set(GRESOURCE_XML ${CMAKE_CURRENT_SOURCE_DIR}/res/resource.gresource.xml)
+set(GRESOURCEBIN ${CMAKE_CURRENT_SOURCE_DIR}/res/resource.gresource)
 
 add_custom_command(
     OUTPUT  ${GRESOURCEBIN}
@@ -52,6 +52,8 @@ add_executable(webling main.cpp
                        FontSettings.cpp
                        UrlDropDown.cpp
                        DBContext.cpp)
+
+add_dependencies(webling resources_schema)
 
 target_link_libraries(webling
         PRIVATE ${GTKMM_LIBRARIES}
