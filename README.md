@@ -1,11 +1,11 @@
 # Webling Browser
-    A small easy-access utility type web browser for a single monitor setup. This is the companion app of GNOME Shell extension Webling.
+A small easy-access utility type web browser for a single monitor setup (works for multi-monitor setup too.) This is the companion app of GNOME Shell extension Webling.
 
-### Use cases (with the GNOME Shell extension please check https://):
+### Use cases (with the GNOME Shell extension please check https:// (Gnome extension currently up for review)):
 - If you don't have multi-monitor or prefer a single monitor setup, this is an easy to show/hide utility app using the GNOME Shell extension indicator button. You can keep your single monitor setup if that's your preference. This still works nicely in multi-monitor setup (the app opens in primary monitor only, can still be moved to other monitors if needed.)
 - If you're using an IDE on fullscreen and don't want to lose sight of your code when Alt-tabbing. Or perhaps you have your main web-browser on fullscreen in other workspace, this will save you headache or dizziness from switching workspaces.
 - Good for throw-away tabs or for a quick trivial research using AI Chatbots (ChatGPT, Gemini, etc.), this is to avoid cluttering your main web-browser with tabs you won't use later.
-- Switching in AI Chatbots from chats to chats takes time. Use tabs for each chats instead (for security reasons maybe you don't want your main web-browser to offer persistent storage for ChatGPT.)
+- Switching in AI Chatbots from chats to chats takes time. Use tabs for each chats instead (for security reasons maybe you don't want your main web-browser to permit persistent storage.)
 
 ## Dependencies
 
@@ -36,13 +36,13 @@ Runtime / Build Libraries
 ## Installing Dependencies
 ### Fedora
 ```
-sudo dnf install cmake pkg-config gtkmm4.0-devel webkitgtk6.0-devel libsoup3-devel gumbo-parser-devel libpsl-devel glycin-gtk4-devel sqlitecpp-devel
+sudo dnf install g++ cmake pkg-config gtkmm4.0-devel webkitgtk6.0-devel libsoup3-devel gumbo-parser-devel libpsl-devel glycin-gtk4-devel sqlitecpp-devel
 ```
 
 ### Debian / Ubuntu
 
 ```
-sudo apt install cmake pkg-config libgtkmm-4.0-dev libwebkitgtk-6.0-dev libsoup-3.0-dev libgumbo-dev libpsl-dev libglycin-gtk4-2-dev libsqlitecpp-dev
+sudo apt install g++ cmake pkg-config libgtkmm-4.0-dev libwebkitgtk-6.0-dev libsoup-3.0-dev libgumbo-dev libpsl-dev libglycin-gtk4-2-dev libsqlitecpp-dev
 ```
 
 ## Build & Install
@@ -58,4 +58,4 @@ cmake --install build
 ~/.local/bin
 ~/.local/share/webling
 ```
-# For bugs, improvements and feature requests please open issues for this repository. Pull requests are welcome, please describe clearly what your changes do.
+For bugs fixes/reports, suggestions and feature requests please open issues for this repository. Pull requests are welcome, please describe clearly what your changes do.
