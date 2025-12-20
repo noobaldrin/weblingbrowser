@@ -155,17 +155,14 @@ void UrlDropDown::open_edit_url_dialog(const Glib::RefPtr<UrlItem> &item)
         filedialog->set_filters(filefilterlistmodel);
 
         filedialog->open([self = filedialog, image_for_picture_button](const Glib::RefPtr<Gio::AsyncResult>& result) {
-            try {
-                auto file = self->open_finish(result);
-                auto stream = file->read();
-                image_for_picture_button->set(decode_image_to_texture(file->read()));
-            } catch (const Gtk::DialogError& de) {
-                std::cerr << de.what() << std::endl;
-            }
+            auto file = self->open_finish(result);
+            auto stream = file->read();
+            image_for_picture_button->set(decode_image_to_texture(file->read()));
         });
     });
 
     auto set_default_favicon_button = Gtk::make_managed<Gtk::Button>();
+    set_default_favicon_button->set_tooltip_text("Get default favicon");
     set_default_favicon_button->set_size_request(1, 100);
     set_default_favicon_button->set_image_from_icon_name("view-refresh-symbolic", Gtk::IconSize::NORMAL);
 
@@ -207,12 +204,59 @@ void UrlDropDown::open_edit_url_dialog(const Glib::RefPtr<UrlItem> &item)
         gsize data_size;
         auto data = png_bytes->get_data(data_size);
         auto forchecksum = static_cast<const guchar*>(data);
+
+        if (dialog_name_entry->get_text().empty() || dialog_url_entry->get_text().empty())
+            return;
+
+        SQLite::Statement stmt_find_existing_url_name(*m_url_db, R"SQL(
+                                                        SELECT name, basedomain, subdomain
+                                                        FROM "main"."urls"
+                                                        WHERE name = ? OR (basedomain = ? AND subdomain = ?)
+                                                        )SQL");
+        stmt_find_existing_url_name.bind(1, dialog_name_entry->get_text());
+        std::string basedomain; std::string subdomain;
+        split_urlname(dialog_url_entry->get_text(), subdomain, basedomain);
+        stmt_find_existing_url_name.bind(2, basedomain);
+        stmt_find_existing_url_name.bind(3, subdomain);
+        
+        if (stmt_find_existing_url_name.executeStep()) {
+            auto dialogmsg = Gtk::make_managed<Gtk::Window>();
+            dialogmsg->set_transient_for(*dialog);
+            dialogmsg->set_modal();
+            auto queriedName = stmt_find_existing_url_name.getColumn(0).getString();
+            auto queriedbasedomain = stmt_find_existing_url_name.getColumn(1).getString();
+            auto queriedsubdomain = stmt_find_existing_url_name.getColumn(2).getString();
+
+            Glib::ustring message;
+            if (dialog_name_entry->get_text() == queriedName) {
+                message = dialog_name_entry->get_text();
+            } else if (dialog_url_entry->get_text() == Glib::ustring(queriedsubdomain + "." + queriedbasedomain)) {
+                message = dialog_url_entry->get_text();
+            } else if (dialog_url_entry->get_text() == queriedbasedomain) {
+                message = dialog_url_entry->get_text();
+            }
+
+            auto messagelbl = Gtk::make_managed<Gtk::Label>(message + " already exists");
+            messagelbl->set_expand(true);
+            auto messageokbtn = Gtk::make_managed<Gtk::Button>("Ok");
+            messageokbtn->set_expand(false);
+            messageokbtn->signal_clicked().connect([dialogmsg]() {
+                dialogmsg->close();
+            });
+            auto dialogbox = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::VERTICAL);
+            dialogbox->add_css_class("dialog-box");
+            dialogbox->append(*messagelbl);
+            dialogbox->append(*messageokbtn);
+            dialogmsg->set_child(*dialogbox);
+            dialogmsg->present();
+            return;
+        }
+
         SQLite::Statement stmt_insert_favicon(*m_url_db, R"SQL(
                                                         INSERT OR IGNORE INTO "main"."favicons" (checksum, favicon)
                                                         VALUES (?, ?);
                                                         )SQL");
-        Glib::Checksum checksum;
-        auto checksumstr = checksum.compute_checksum(Glib::Checksum::Type::SHA256, forchecksum, data_size);
+        auto checksumstr = Glib::Checksum::compute_checksum(Glib::Checksum::Type::SHA256, forchecksum, data_size);
         stmt_insert_favicon.bind(1, checksumstr);
         stmt_insert_favicon.bind(2, data, data_size);
 
@@ -228,7 +272,7 @@ void UrlDropDown::open_edit_url_dialog(const Glib::RefPtr<UrlItem> &item)
                 stmt_get_existing_favicon.bind(1, checksumstr);
                 if (stmt_get_existing_favicon.executeStep())
                     favicon_id = stmt_get_existing_favicon.getColumn("id").getInt();
-                }
+            }
         } else favicon_id = m_url_db->getLastInsertRowid();
 
         SQLite::Statement stmt_insert_db(*m_url_db, R"SQL(
@@ -240,8 +284,6 @@ void UrlDropDown::open_edit_url_dialog(const Glib::RefPtr<UrlItem> &item)
         stmt_insert_db.bind(1, item_pos);
         stmt_insert_db.bind(2, dialog_name_entry->get_text());
 
-        std::string subdomain; std::string basedomain;
-        split_urlname(dialog_url_entry->get_text(), subdomain, basedomain);
         stmt_insert_db.bind(3, subdomain);
         stmt_insert_db.bind(4, basedomain);
         stmt_insert_db.bind(5, favicon_id);
@@ -293,18 +335,6 @@ void UrlDropDown::open_edit_url_dialog(const Glib::RefPtr<UrlItem> &item)
                 if (stmt_get_row.executeStep()) {
                     std::cout << "Duplicate favicon found: favicon id " << favicon_id << std::endl;
                     favicon_id = stmt_get_row.getColumn("id").getInt();
-
-                    SQLite::Statement stmt_update_favicon(*m_url_db, R"SQL(
-                        UPDATE "main"."favicons"
-                        SET checksum = ?,
-                            favicon = ?
-                        WHERE favicons.id = ?
-                    )SQL");
-                    stmt_update_favicon.bind(1, checksumstr);
-                    stmt_update_favicon.bind(2, data, data_size);
-                    stmt_update_favicon.bind(3, favicon_id);
-                    if (auto nupdated = stmt_update_favicon.exec())
-                        std::cout << "Favicons table updated: " << nupdated << std::endl;
                 } else {
                     SQLite::Statement stmt_insert_favicon(*m_url_db, R"SQL(
                         INSERT INTO "main"."favicons"
@@ -408,7 +438,7 @@ bool UrlDropDown::on_debounce_timeout(Gtk::Entry *entry)
                                 m_url_cancellable->gobj(),
                                 UrlDropDown::send_msg_finished,
                                 entry);
-   }
+    }
 
     return false;
 }
