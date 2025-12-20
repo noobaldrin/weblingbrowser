@@ -1,3 +1,4 @@
+#include <iostream>
 #include <memory>
 
 #include <glibmm/miscutils.h>
@@ -26,28 +27,50 @@ Webling::Webling(const Glib::ustring& application_id,
     m_fonts_settings = Settings::getFontsSettingsInstance();
 }
 
-Webling::~Webling() = default;
+//Webling::~Webling() = default;
+Webling::~Webling()
+{
+    // to check if Gtk::application is actually exiting.
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+}
 
 Glib::RefPtr<Webling> Webling::create(const Glib::ustring& application_id, Gio::Application::Flags flags)
 {
-    return std::make_shared<Webling>( application_id, flags );
+    return Glib::make_refptr_for_instance<Webling>( new Webling(application_id, flags));
 }
 
 void Webling::on_startup() {
     Gtk::Application::on_startup();
+    hold();
 
     auto introspection_info = Gio::DBus::NodeInfo::create_for_xml(m_introspection_xml);
     auto interface_info = introspection_info->lookup_interface("com.github.noobaldrin.webling");
-    auto connection = Gio::DBus::Connection::get_sync(Gio::DBus::BusType::SESSION);
 
-    connection->register_object(
+    m_connection = Gio::DBus::Connection::get_sync(Gio::DBus::BusType::SESSION);
+    dbusRegistrationId = m_connection->register_object(
         "/com/github/noobaldrin/webling",
         interface_info,
+        //sigc::bind(sigc::ptr_fun(on_dbus_method_call), Glib::RefPtr<Webling>(this), m_window)
         sigc::mem_fun(*this, &Webling::on_dbus_method_call)
     );
+
+    if (!m_window)
+        m_window = Glib::make_refptr_for_instance<BrowserWindow>(new BrowserWindow());
+
+    m_window->signal_close_request().connect([this]() {
+        if (!m_window->save_last_opened_tabs())
+            return true;
+
+        release();
+        return false;
+    }, false);
+
+    m_window->set_hide_on_close(false);
+    add_window(*m_window);
+
+    m_window->present();
 }
 
-#include <iostream>
 void Webling::on_dbus_method_call(const Glib::RefPtr<Gio::DBus::Connection>&,
                          const Glib::ustring&,
                          const Glib::ustring&,
@@ -56,39 +79,33 @@ void Webling::on_dbus_method_call(const Glib::RefPtr<Gio::DBus::Connection>&,
                          const Glib::VariantContainerBase&,
                          const Glib::RefPtr<Gio::DBus::MethodInvocation>& invocation)
 {
-    static int i = 0;
     if (method_name == "Toggle") {
         if (!m_window->is_active())
-            m_window->show();
-        else m_window->hide();
+            m_window->set_visible(true);
+        else m_window->set_visible(false);
 
-        invocation->return_value(Glib::VariantContainerBase{});
     } else if (method_name == "Show") {
-        m_window->show();
+        m_window->set_visible(true);
 
-        invocation->return_value(Glib::VariantContainerBase{});
     } else if (method_name == "Hide") {
         if (m_window->is_visible())
-            m_window->hide();
-        invocation->return_value(Glib::VariantContainerBase{});
-    }
-    else if (method_name == "Close") {
-        release();
+            m_window->set_visible(false);
+
+    } else if (method_name == "Close") {
         m_window->close();
     } else if (method_name == "Debug") {
-        std::cout << i << ":IS_ACTIVE: " << m_window->is_active() << std::endl;
-        std::cout << i << ":IS_VISIBLE: " << m_window->is_visible() << std::endl;
-        std::cout << i << ":HAS_FOCUS: " << m_window->has_focus() << std::endl;
-        i++;
     }
+
+    invocation->return_value(Glib::VariantContainerBase{});
 }
 
 void Webling::on_activate()
 {
-    m_window = std::make_shared<BrowserWindow>();
-    m_window->set_hide_on_close(false);
-    add_window(*m_window);
+	std::cout << __PRETTY_FUNCTION__ << std::endl;
+}
 
-    m_window->present();
-    hold();
+void Webling::on_shutdown()
+{
+    m_connection->unregister_object(dbusRegistrationId);
+    Gtk::Application::on_shutdown();
 }

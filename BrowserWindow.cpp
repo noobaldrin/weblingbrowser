@@ -2,10 +2,10 @@
 #include <memory>
 #include <iostream>
 
-#include <giomm/application.h>
 #include <giomm/menu.h>
 #include <giomm/simpleactiongroup.h>
 #include <glibmm/miscutils.h>
+#include <gtkmm/application.h>
 #include <gtkmm/notebook.h>
 #include <gtkmm/headerbar.h>
 #include <gtkmm/box.h>
@@ -31,7 +31,7 @@ BrowserWindow::BrowserWindow()
     : m_current_session_str(Settings::getSessionSettingsInstance()->get_string("current-session-id"))
 {
     set_title("Webling Browser");
-    set_default_size(1280, 720);
+    set_default_size(800, 600);
 
     auto css_provider = Gtk::CssProvider::create();
     css_provider->load_from_resource("/webling/res/style.css");
@@ -168,13 +168,15 @@ BrowserWindow::BrowserWindow()
         add_tab("about:blank");
 }
 
-BrowserWindow::~BrowserWindow() = default;
-
+BrowserWindow::~BrowserWindow()
+{
+    g_object_unref(m_networksession);
+}
 
 void BrowserWindow::add_tab(const Glib::ustring& url) {
     const auto webview = static_cast<WebKitWebView*>(g_object_new(WEBKIT_TYPE_WEB_VIEW,
-                                                            "network-session",
-                                                            m_networksession, nullptr));
+                                                     "network-session",
+                                                     m_networksession, nullptr));
     webkit_web_view_load_uri(webview, url.c_str());
     const auto view = Glib::wrap(GTK_WIDGET(webview)); // Convert to gtkmm
     view->set_expand(true);
@@ -279,7 +281,6 @@ std::vector<SessionEntry> BrowserWindow::fetch_session_ids() const
                                   FROM "main"."sessions"
                                   WHERE session_id = ?
                                   )SQL");
-try {
     sessions_stmt.bind(1, m_current_session_str);
     while (sessions_stmt.executeStep()) {
         session_ids.emplace_back( SessionEntry {
@@ -288,39 +289,11 @@ try {
                                   sessions_stmt.getColumn("tab_position").getInt() }
         );
     }
-} catch (const SQLite::Exception& e) {
-    std::cerr << e.what() << std::endl;
-}
 
     return session_ids;
 }
 
-
-void BrowserWindow::open_last_opened_tabs(std::vector<SessionEntry>& sessions)
-{
-    std::sort(sessions.begin(), sessions.end(),
-        [](const SessionEntry& a, const SessionEntry& b)->bool {
-            return a.position < b.position;
-    });
-
-    for (auto &session : sessions) {
-        add_tab(session.url);
-    }
-}
-
-void on_webview_load_changed(WebKitWebView*, const WebKitLoadEvent load_event, const gpointer user_data)
-{
-    auto fontsettingswindow = static_cast<FontSettings*>(user_data);
-
-    if (load_event == WEBKIT_LOAD_COMMITTED) {
-        fontsettingswindow->js_font_override(FontSettings::FontType::Default);
-        fontsettingswindow->js_font_override(FontSettings::FontType::Monospace);
-        fontsettingswindow->js_font_override(FontSettings::FontType::Serif);
-        fontsettingswindow->js_font_override(FontSettings::FontType::SansSerif);
-    }
-}
-
-bool BrowserWindow::on_close_request()
+bool BrowserWindow::save_last_opened_tabs()
 {
     // Store non-unique favicons
     SQLite::Statement remove_stmt(*m_sessions_db, R"SQL(
@@ -346,12 +319,11 @@ bool BrowserWindow::on_close_request()
         if (!notebook_page)
             std::cout << "!ob" << std::endl;
 
-       webviews.emplace_back(WEBKIT_WEB_VIEW(notebook_page->get_child()->gobj()));
+        webviews.emplace_back(WEBKIT_WEB_VIEW(notebook_page->get_child()->gobj()));
         if (!webviews.back()) {
             std::cerr << "!webviews" << std::endl;
-            return true;
+            return false;
         }
-
     }
 
     int i = 0;
@@ -366,7 +338,35 @@ bool BrowserWindow::on_close_request()
         i++;
     }
 
-    return false;
+    // Todo: implement reopened closed tabs
+    while (m_notebook->get_n_pages() > 0)
+        m_notebook->remove_page(0);
+
+    return true;
+}
+
+void BrowserWindow::open_last_opened_tabs(std::vector<SessionEntry>& sessions)
+{
+    std::sort(sessions.begin(), sessions.end(),
+        [](const SessionEntry& a, const SessionEntry& b)->bool {
+            return a.position < b.position;
+    });
+
+    for (auto &session : sessions) {
+        add_tab(session.url);
+    }
+}
+
+void on_webview_load_changed(WebKitWebView*, const WebKitLoadEvent load_event, const gpointer user_data)
+{
+    auto fontsettingswindow = static_cast<FontSettings*>(user_data);
+
+    if (load_event == WEBKIT_LOAD_COMMITTED) {
+        fontsettingswindow->js_font_override(FontSettings::FontType::Default);
+        fontsettingswindow->js_font_override(FontSettings::FontType::Monospace);
+        fontsettingswindow->js_font_override(FontSettings::FontType::Serif);
+        fontsettingswindow->js_font_override(FontSettings::FontType::SansSerif);
+    }
 }
 
 void BrowserWindow::apply_common_settings(WebKitWebView *webview)

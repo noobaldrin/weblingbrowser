@@ -28,6 +28,8 @@ typedef struct SessionEntry_ {
     int position;
 } SessionEntry;
 
+class DBusConnection;
+
 class BrowserWindow final : public Gtk::Window
 {
 public:
@@ -41,9 +43,9 @@ public:
     static void clear_history_cb(GObject* source, GAsyncResult* result, gpointer user_data);
     static void open_font_dialog();
     std::vector<SessionEntry> fetch_session_ids() const;
-    void open_last_opened_tabs(std::vector<SessionEntry>& sessions);
-    bool on_close_request() override;
 
+    void open_last_opened_tabs(std::vector<SessionEntry>& sessions);
+    bool save_last_opened_tabs();
     void apply_common_settings(WebKitWebView* webview);
 
 private:
