@@ -41,42 +41,38 @@ void DBContext::create_directory_for_db_files()
 
 void DBContext::create_database_files()
 {
-    try {
-        auto db_settings = Settings::getDBSettingsInstance();
-        auto sqliteFlags = SQLite::OPEN_READWRITE | SQLite::OPEN_CREATE;
-        sessions_db_ = std::make_shared<SQLite::Database>(
-                       db_settings->get_string("sessions-db-path"),
-                       sqliteFlags);
-        urls_db_ = std::make_shared<SQLite::Database>(
-                   db_settings->get_string("urls-db-path"),
+    auto db_settings = Settings::getDBSettingsInstance();
+    auto sqliteFlags = SQLite::OPEN_READWRITE | SQLite::OPEN_CREATE;
+    sessions_db_ = std::make_shared<SQLite::Database>(
+                   db_settings->get_string("sessions-db-path"),
                    sqliteFlags);
-        urls_db_->exec("PRAGMA foreign_keys = ON;");
+    urls_db_ = std::make_shared<SQLite::Database>(
+               db_settings->get_string("urls-db-path"),
+               sqliteFlags);
+    urls_db_->exec("PRAGMA foreign_keys = ON;");
 
-        if (!sessions_db_->tableExists("sessions"))
-            sessions_db_->exec(R"SQL(
-                    CREATE TABLE "sessions" (
-	                "session_id" TEXT NOT NULL,
-	                "tab_position" INTEGER NOT NULL,
-                    "url" TEXT NOT NULL)
+    if (!sessions_db_->tableExists("sessions"))
+        sessions_db_->exec(R"SQL(
+                CREATE TABLE "sessions" (
+	            "session_id" TEXT NOT NULL,
+	            "tab_position" INTEGER NOT NULL,
+                "url" TEXT NOT NULL)
+                )SQL");
+    if (!urls_db_->tableExists("urls"))
+        urls_db_->exec(R"SQL(
+                    CREATE TABLE IF NOT EXISTS favicons (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    checksum TEXT UNIQUE NOT NULL,
+                    favicon BLOB NOT NULL
+                    );
+
+                    CREATE TABLE IF NOT EXISTS urls (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    item_pos INTEGER NOT NULL,
+                    name TEXT UNIQUE,
+                    subdomain TEXT,
+                    basedomain TEXT NOT NULL,
+                    favicon_id INTEGER,
+                    FOREIGN KEY(favicon_id) REFERENCES favicons(id));
                     )SQL");
-        if (!urls_db_->tableExists("urls"))
-            urls_db_->exec(R"SQL(
-                        CREATE TABLE IF NOT EXISTS favicons (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        checksum TEXT UNIQUE NOT NULL,
-                        favicon BLOB NOT NULL
-                        );
-
-                        CREATE TABLE IF NOT EXISTS urls (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        item_pos INTEGER NOT NULL,
-                        name TEXT UNIQUE,
-                        subdomain TEXT,
-                        basedomain TEXT NOT NULL,
-                        favicon_id INTEGER,
-                        FOREIGN KEY(favicon_id) REFERENCES favicons(id));
-                        )SQL");
-    } catch (const SQLite::Exception& e) {
-        std::cerr << __PRETTY_FUNCTION__ << " " << e.what() << std::endl;
-    }
 }
