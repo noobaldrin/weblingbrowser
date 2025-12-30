@@ -49,10 +49,9 @@ BrowserWindow::BrowserWindow()
     auto settings_popovermenu = Gtk::make_managed<Gtk::PopoverMenu>();
     settings_popovermenu->set_has_arrow(false);
 
-    auto main_menu = Gio::Menu::create();
-    auto settings_menumodel = Gio::Menu::create();
+    auto root_menu = Gio::Menu::create();
 
-    auto action_group = Gio::SimpleActionGroup::create();
+    auto settings_menu = Gio::Menu::create();
     auto open_font_settings_action = Gio::SimpleAction::create("open-font-settings");
     open_font_settings_action->signal_activate().connect([this](const Glib::VariantBase&) {
         static std::shared_ptr<FontSettings> font_settings_window;
@@ -73,20 +72,31 @@ BrowserWindow::BrowserWindow()
                                               })), nullptr);
     });
 
-    action_group->add_action(open_font_settings_action);
-    action_group->add_action(clear_all_data_action);
-    insert_action_group("main-menu", action_group);
-    settings_menumodel->append("Change Font Settings", "main-menu.open-font-settings");
-    settings_menumodel->append("Clear all data", "main-menu.clear-all-data");
+    auto actions_group = Gio::SimpleActionGroup::create();
+    actions_group->add_action(open_font_settings_action);
+    actions_group->add_action(clear_all_data_action);
 
-    auto action_menumodel = Gio::Menu::create();
-    action_menumodel->append("Exit", "window.close");
+    settings_menu->append("Change Font Settings", "main-menu.open-font-settings");
+    settings_menu->append("Clear all data", "main-menu.clear-all-data");
 
-    main_menu->append_section(settings_menumodel);
-    main_menu->append_section(action_menumodel);
-    settings_popovermenu->set_menu_model(main_menu);
+    auto basic_actions_menu = Gio::Menu::create();
+    auto basic_actions_group = Gio::SimpleActionGroup::create();
+    auto exit_action = Gio::SimpleAction::create("quit");
+    exit_action->signal_activate().connect([this](const Glib::VariantBase&) {
+        close();
+    });
 
+    basic_actions_group->add_action(exit_action);
+    basic_actions_menu->append("Exit", "win.quit");
 
+    root_menu->append_section(settings_menu);
+    root_menu->append_section(basic_actions_menu);
+    signal_map().connect([this, actions_group, basic_actions_group]() {
+            insert_action_group("main-menu", actions_group);
+            insert_action_group("win", basic_actions_group);
+    });
+
+    settings_popovermenu->set_menu_model(root_menu);
     if (!m_window_font_settings)
         m_window_font_settings = std::make_unique<FontSettings>(&m_webviews);
 
