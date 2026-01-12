@@ -12,7 +12,6 @@ DBContext::DBContext()
     : default_sessions_db_path_(Glib::get_home_dir() + "/.local/share/webling/sessions/sessions.db")
     , default_urls_db_path_(Glib::get_home_dir() + "/.local/share/webling/sessions/urls.db")
 {
-
     fetch_configs_from_settings();
     create_directory_for_db_files();
     create_database_files();
@@ -56,7 +55,8 @@ void DBContext::create_database_files()
                 CREATE TABLE "sessions" (
 	            "session_id" TEXT NOT NULL,
 	            "tab_position" INTEGER NOT NULL,
-                "url" TEXT NOT NULL)
+                "url" TEXT NOT NULL,
+                "time_opened" INT NOT NULL)
                 )SQL");
     if (!urls_db_->tableExists("urls"))
         urls_db_->exec(R"SQL(

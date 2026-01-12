@@ -26,6 +26,7 @@ typedef struct SessionEntry_ {
     Glib::ustring session_id;
     Glib::ustring url;
     int position;
+    int64_t time_opened;
 } SessionEntry;
 
 class DBusConnection;
@@ -36,7 +37,7 @@ public:
     BrowserWindow();
     ~BrowserWindow() override;
 
-    void add_tab(const Glib::ustring& url);
+    void add_tab(const Glib::ustring &url, SessionEntry *session_data = nullptr);
     Gtk::Widget* create_tab_label(Gtk::Widget *tab_child);
 
     void clear_history() const;
@@ -46,7 +47,7 @@ public:
 
     void open_last_opened_tabs(std::vector<SessionEntry>& sessions);
     bool save_last_opened_tabs();
-    void apply_common_settings(WebKitWebView* webview);
+    void apply_common_settings(Widget* widget);
 
 private:
     WebKitNetworkSession *m_networksession;

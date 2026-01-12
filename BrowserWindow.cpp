@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <memory>
+#include <chrono>
 #include <iostream>
 
 #include <giomm/menu.h>
@@ -183,22 +184,46 @@ BrowserWindow::~BrowserWindow()
     g_object_unref(m_networksession);
 }
 
-void BrowserWindow::add_tab(const Glib::ustring& url) {
+void BrowserWindow::add_tab(const Glib::ustring& url, SessionEntry *session_data) {
     const auto webview = static_cast<WebKitWebView*>(g_object_new(WEBKIT_TYPE_WEB_VIEW,
                                                      "network-session",
                                                      m_networksession, nullptr));
-    webkit_web_view_load_uri(webview, url.c_str());
-    const auto view = Glib::wrap(GTK_WIDGET(webview)); // Convert to gtkmm
-    view->set_expand(true);
 
-    apply_common_settings(webview);
+    const auto webviewmm = Glib::wrap(GTK_WIDGET(webview)); // Convert to gtkmm
 
-    const int current_page_index = m_notebook->append_page(*view, *create_tab_label(view));
+    int64_t *tab_opened_epoch_ms = nullptr;
+    if (session_data) {
+        auto sessions_db = DBContext::instance().get_sessions_db();
+        auto stmt_time_opened = SQLite::Statement(*sessions_db, R"SQL(
+                                                                SELECT time_opened
+                                                                FROM "main"."sessions"
+                                                                WHERE time_opened = ?
+                                                                )SQL");
+        stmt_time_opened.bind(1, session_data->time_opened);
+
+        if (stmt_time_opened.executeStep())
+            tab_opened_epoch_ms = new int64_t(stmt_time_opened.getColumn(0).getInt64());
+
+    } else {
+        auto now = std::chrono::system_clock::now();
+        tab_opened_epoch_ms = new int64_t(std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count());
+    }
+
+    webviewmm->set_data("time-opened", tab_opened_epoch_ms, [](const gpointer time_data) {
+                delete static_cast<int64_t*>(time_data);
+    });
+
+    webviewmm->set_expand(true);
+    webkit_web_view_load_uri(WEBKIT_WEB_VIEW(webviewmm->gobj()), url.c_str());
+
+    apply_common_settings(webviewmm);
+
+    const int current_page_index = m_notebook->append_page(*webviewmm, *create_tab_label(webviewmm));
     if (current_page_index < 0)
         return;
 
-    m_notebook->set_tab_reorderable(*view, true);
-    view->set_data("current_tab_index", GINT_TO_POINTER(current_page_index));
+    m_notebook->set_tab_reorderable(*webviewmm, true);
+    webviewmm->set_data("current_tab_index", GINT_TO_POINTER(current_page_index));
     m_notebook->set_current_page(current_page_index);
     if (current_page_index >= 0 && current_page_index <= static_cast<int>(m_webviews.size())) {
         m_webviews.insert(m_webviews.begin() + current_page_index, webview);
@@ -296,7 +321,8 @@ std::vector<SessionEntry> BrowserWindow::fetch_session_ids() const
         session_ids.emplace_back( SessionEntry {
                                   sessions_stmt.getColumn("session_id").getString(),
                                   sessions_stmt.getColumn("url").getString(),
-                                  sessions_stmt.getColumn("tab_position").getInt() }
+                                  sessions_stmt.getColumn("tab_position").getInt(),
+                                  sessions_stmt.getColumn("time_opened").getInt64() }
         );
     }
 
@@ -315,8 +341,8 @@ bool BrowserWindow::save_last_opened_tabs()
 
     SQLite::Statement insert_stmt(*m_sessions_db, R"SQL(
                                   INSERT INTO "main"."sessions"
-                                  (session_id, url, tab_position)
-                                  VALUES (?, ?, ?)
+                                  (session_id, url, tab_position, time_opened)
+                                  VALUES (?, ?, ?, ?)
                                   )SQL");
 
     auto pages = m_notebook->get_pages();
@@ -343,8 +369,13 @@ bool BrowserWindow::save_last_opened_tabs()
         insert_stmt.bind(1, m_current_session_str);
         insert_stmt.bind(2, webkit_web_view_get_uri(webview));
         insert_stmt.bind(3, i);
+
+        auto webviewmm = Glib::wrap(GTK_WIDGET(webview));
+        auto *time_opened = static_cast<int64_t*>(webviewmm->get_data("time-opened"));
+        insert_stmt.bind(4, *time_opened);
         if (insert_stmt.exec())
             n_modified++;
+
         i++;
     }
 
@@ -363,7 +394,7 @@ void BrowserWindow::open_last_opened_tabs(std::vector<SessionEntry>& sessions)
     });
 
     for (auto &session : sessions) {
-        add_tab(session.url);
+        add_tab(session.url, &session);
     }
 }
 
@@ -379,8 +410,9 @@ void on_webview_load_changed(WebKitWebView*, const WebKitLoadEvent load_event, c
     }
 }
 
-void BrowserWindow::apply_common_settings(WebKitWebView *webview)
+void BrowserWindow::apply_common_settings(Widget *widget)
 {
+    auto webview = WEBKIT_WEB_VIEW(widget->gobj());
     auto wksettings = webkit_web_view_get_settings(webview);
     webkit_settings_set_enable_javascript(wksettings, TRUE);
     webkit_settings_set_enable_site_specific_quirks(wksettings, TRUE);
