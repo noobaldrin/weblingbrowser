@@ -175,8 +175,17 @@ BrowserWindow::BrowserWindow()
     auto session_ids = fetch_session_ids();
     open_last_opened_tabs(session_ids);
 
-    if (m_notebook->get_n_pages() == 0)
-        add_tab("about:blank");
+    if (m_notebook->get_n_pages() == 0) {
+        auto dummy_widget = Gtk::make_managed<Gtk::Label>("Add URL by selecting the menu at the top (e.g google.com)");
+        bool *firstopen = new bool(true);
+        auto tabindex = m_notebook->append_page(*dummy_widget, *create_tab_label(dummy_widget));
+        if (tabindex == 0) {
+            dummy_widget->set_data("dummy-page", static_cast<void*>(firstopen),
+                [](void *data) {
+                    delete static_cast<bool*>(data);
+                });
+        }
+    }
 }
 
 BrowserWindow::~BrowserWindow()
@@ -185,6 +194,18 @@ BrowserWindow::~BrowserWindow()
 }
 
 void BrowserWindow::add_tab(const Glib::ustring& url, SessionEntry *session_data) {
+    if (m_notebook->get_n_pages() < 2) {
+        auto pages = m_notebook->get_pages();
+        for (int i = 0; i < pages->get_n_items(); ++i) {
+            auto notebook_page = std::dynamic_pointer_cast<Gtk::NotebookPage>(pages->get_object(i));
+            bool *firstopen = static_cast<bool*>(notebook_page->get_child()->get_data("dummy-page"));
+            if (firstopen != nullptr && *firstopen) {
+                m_notebook->remove_page(i);
+                break;
+            }
+        }
+    }
+
     const auto webview = static_cast<WebKitWebView*>(g_object_new(WEBKIT_TYPE_WEB_VIEW,
                                                      "network-session",
                                                      m_networksession, nullptr));
