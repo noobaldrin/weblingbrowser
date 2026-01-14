@@ -18,6 +18,7 @@
 #include <gtkmm/menubutton.h>
 #include <gtkmm/stringlist.h>
 #include <gtkmm/label.h>
+#include <gtkmm/spinner.h>
 #include <webkit/webkit.h>
 
 #include "DBContext.h"
@@ -301,10 +302,16 @@ Gtk::Widget* BrowserWindow::create_tab_label(Widget *tab_child) {
 
     }), label);
 
-    g_signal_connect(webview_c, "load-changed", G_CALLBACK(on_webview_load_changed), m_window_font_settings.get());
+    auto loading_spinner = Gtk::make_managed<Gtk::Spinner>();
+    auto *indicators = new Indicator {
+        loading_spinner,
+        m_window_font_settings.get()
+    };
+    g_signal_connect(webview_c, "load-changed", G_CALLBACK(on_webview_load_changed), indicators);
 
     box->prepend(*label);
     box->prepend(*favicon_img);
+    box->prepend(*loading_spinner);
     box->append(*close_button);
     return box;
 }
@@ -421,13 +428,23 @@ void BrowserWindow::open_last_opened_tabs(std::vector<SessionEntry>& sessions)
 
 void on_webview_load_changed(WebKitWebView*, const WebKitLoadEvent load_event, const gpointer user_data)
 {
-    auto fontsettingswindow = static_cast<FontSettings*>(user_data);
+    const auto *indicator = static_cast<Indicator*>(user_data);
 
-    if (load_event == WEBKIT_LOAD_COMMITTED) {
-        fontsettingswindow->js_font_override(FontSettings::FontType::Default);
-        fontsettingswindow->js_font_override(FontSettings::FontType::Monospace);
-        fontsettingswindow->js_font_override(FontSettings::FontType::Serif);
-        fontsettingswindow->js_font_override(FontSettings::FontType::SansSerif);
+    switch (load_event) {
+        case WEBKIT_LOAD_STARTED:
+            indicator->spinner->set_visible(true);
+            indicator->spinner->set_spinning(true);
+            break;
+        case WEBKIT_LOAD_COMMITTED:
+            indicator->font_settings->js_font_override(FontSettings::FontType::Default);
+            indicator->font_settings->js_font_override(FontSettings::FontType::Monospace);
+            indicator->font_settings->js_font_override(FontSettings::FontType::Serif);
+            indicator->font_settings->js_font_override(FontSettings::FontType::SansSerif);
+            break;
+        case WEBKIT_LOAD_FINISHED:
+            indicator->spinner->set_spinning(false);
+            indicator->spinner->set_visible(false);
+            break;
     }
 }
 

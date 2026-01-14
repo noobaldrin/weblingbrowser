@@ -9,6 +9,7 @@ namespace Gtk {
     class Notebook;
     class CssProvider;
     class MenuButton;
+    class Spinner;
 }; // Gtk
 
 namespace SQLite {
@@ -28,6 +29,11 @@ typedef struct SessionEntry_ {
     int position;
     int64_t time_opened;
 } SessionEntry;
+
+typedef struct Indicator_ {
+    Gtk::Spinner *spinner;
+    FontSettings *font_settings;
+} Indicator;
 
 class DBusConnection;
 
